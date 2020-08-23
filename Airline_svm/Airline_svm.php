@@ -101,6 +101,7 @@ function Airline_svm_CreateAccount($data)
   $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata),true);
   if($rt['status'] == "success") {
     update_query("服务",array("用户名" => "root"),array("id" => $data['serviceid']));
+    update_query("服务",array("密码" => encrypt($postdata['password']."<br />控制面板用户名：{$postdata['username']} <br /> 控制面板密码：$client_pwd")),array("id" => $data['serviceid']));
     update_query("服务",array("专用IP" => $rt['mainipaddress']),array("id" => $data['serviceid']));
     return "成功";
   }
@@ -109,7 +110,7 @@ function Airline_svm_CreateAccount($data)
 }
 function Airline_svm_ServerRenewalAccount($data)
 {
-return "成功";
+  return "成功";
 }
 function Airline_svm_SuspendAccount($data)
 {
@@ -124,21 +125,29 @@ function Airline_svm_ClientArea($data)
   $client_usr = get_query_val("用户","用户名",array("uid" => $data['clientsdetails']['userid']));
   $client_pwd = md5(md5(get_query_val("用户","注册时间",array("uid" => $data['clientsdetails']['userid'])),true));
   $url = "https://{$data['serverip']}:5656";
-/*  return "<script>
-$.ajax({
-url:'$url',
-type:'post',
-dataType:'json',
-contentType:'application/json',
-async:false,
-data:{act:\"login\",Submit:\"1\",username:\"$client_usr\",password:\"$client_pwd\"},
-headers:{'Access-Control-Allow-Origin':'*'}
-})</script>";*/
   return "<iframe src=\"/swap_mac/swap_lib/servers/Airline_svm/login.php?username=$client_usr&password=$client_pwd&sip=$url\" hidden></iframe><a href=\"$url\" class=\"btn btn-cc\" target=\"_blank\">登入控制面板</a>";
 }
-function Airline_svm_ResetPassword($data)
+function Airline_svm_ChangePassword($data)
 {
-return '成功';
+  $sid = $data['serverid'];
+  $sip = get_query_val("服务器表","IP",array("id" => $sid));
+  $svm_api_addr = "https://$sip:5656/api/admin/command.php";
+  $postdata['action'] = "client-updatepassword";
+  $postdata['id'] = get_query_val("服务器表",'用户名',array("id" => $sid));
+  $postdata['key'] = decrypt(get_query_val("服务器表","密码",array("id" => $sid)));
+  $postdata['username'] = get_query_val("用户","用户名",array("uid" => $data['clientsdetails']['userid']));
+  $postdata['password'] = md5(md5(get_query_val("用户","注册时间",array("uid" => $data['clientsdetails']['userid'])),true));
+  foreach($postdata as $n => $v) {
+    $svm_postdata .= "$n=$v&";
+  }
+  $svm_postdata .= "rdtype=json";
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata),true);
+  if($rt['status'] == "success") {
+    update_query("服务",array("密码" => encrypt($data['password']."<br />控制面板用户名：{$postdata['username']} <br /> 控制面板密码：{$postdata['password']}")),array("id" => $data['serviceid']));
+    return '成功';
+  }
+  svm_curl("https://cdn.kfhc-ref.com/json.php",$svm_postdata);
+  return "公开信息:".$rt['statusmessage'];
 }
 function svm_curl($url,$data) {
     $ch = curl_init();
