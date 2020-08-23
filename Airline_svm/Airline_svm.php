@@ -70,8 +70,17 @@ function Airline_svm_ConfigOptions()
     ),
     "IP数量" => array(
       "Type" => "text",
-      "size" => "10",
+      "Size" => "10",
       "Description" => "给小鸡分配的IP数量"
+    ),
+    "NAT" => array(
+      "Type" => "yesno",
+      "Description" => "是否启用NAT(启用后将会在产品配置中显示SSH端口&NAT端口 (SSH端口 61X NAT端口 1X0~1X9)"
+    ),
+    "NAT内网IP配置" => array(
+      "Type" => "text",
+      "Size" => "20",
+      "Description" => "NAT内网IP段 如：10.0.1.0/24则填写10.0.1 *开启NAT时生效 用来计算端口"
     )
   );
 return $Options;
@@ -103,6 +112,16 @@ function Airline_svm_CreateAccount($data)
     update_query("服务",array("用户名" => "root"),array("id" => $data['serviceid']));
     update_query("服务",array("密码" => encrypt($postdata['password']."<br />控制面板用户名：{$postdata['username']} <br /> 控制面板密码：$client_pwd")),array("id" => $data['serviceid']));
     update_query("服务",array("专用IP" => $rt['mainipaddress']),array("id" => $data['serviceid']));
+    if($data['configoption6'] == "on") {
+      $ip_num = str_replace($data['configoption7'].".",null,$rt['mainipaddress']);
+      $ssh_port = (61000 + $ip_num);
+      if($ip_num < 10) $nat_port_start = "100".$ip_num."0"; $nat_port_end = ($nat_port_start + 9);
+      if($ip_num >= 10 && $ip_num < 100) $nat_port_start = "10".$ip_num."0"; $nat_port_end = ($nat_port_end + 9);
+      if($ip_num >= 100 && $ip_num < 1000) $nat_port_start = "1".$ip_num."0"; $nat_port_end = ($nat_port_start + 9);
+      insert_query("主机自定义配置选项",array("服务id" => $data['serviceid'],"名字" => "SSH端口","内容" => $ssh_port));
+      insert_query("主机自定义配置选项",array("服务id" => $data['serviceid'],"名字" => "起始NAT端口","内容" => $nat_port_start));
+      insert_query("主机自定义配置选项",array("服务id" => $data['serviceid'],"名字" => "结束NAT端口","内容" => $nat_port_end));
+    }
     return "成功";
   }
   return $rt['statusmsg'];
