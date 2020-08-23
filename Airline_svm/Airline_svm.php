@@ -1,7 +1,6 @@
 <?php
 //服务器插件
-function Airline_svm_ConfigOptions()
-{
+function Airline_svm_ConfigOptions() {
   $cid = mac_url_get(1);
   $server_id = get_query_val("产品","服务器组",array("id" => $cid));
   $svm_api_addr = "https://".get_query_val("服务器表","ip",array("id" => $server_id)).":5656/api/admin/command.php";
@@ -85,8 +84,7 @@ function Airline_svm_ConfigOptions()
   );
 return $Options;
 }
-function Airline_svm_CreateAccount($data)
-{
+function Airline_svm_CreateAccount($data) {
   $svm_api_addr = "https://{$data['serverip']}:5656/api/admin/command.php";
   $client_pwd = md5(md5(get_query_val("用户","注册时间",array("uid" => $data['clientsdetails']['userid'])),true));
   $client_email = $data['clientsdetails']['email'];
@@ -109,9 +107,11 @@ function Airline_svm_CreateAccount($data)
   svm_curl($svm_api_addr,"action=client-create&id={$postdata['id']}&key={$postdata['key']}&username={$postdata['username']}&password=$client_pwd&email=$client_email&firstname=$client_name");
   $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata),true);
   if($rt['status'] == "success") {
-    update_query("服务",array("用户名" => "root"),array("id" => $data['serviceid']));
-    update_query("服务",array("密码" => encrypt($postdata['password']."<br />控制面板用户名：{$postdata['username']} <br /> 控制面板密码：$client_pwd")),array("id" => $data['serviceid']));
-    update_query("服务",array("专用IP" => $rt['mainipaddress']),array("id" => $data['serviceid']));
+    update_query("服务",array(
+      "用户名" => "root",
+      "密码" => encrypt($postdata['password']."<br />控制面板用户名：{$postdata['username']} <br /> 控制面板密码：$client_pwd"),
+      "专用IP" => $rt['mainipaddress'],
+      "注释" => $rt['vserverid']),array("id" => $data['serviceid']));
     if($data['configoption6'] == "on") {
       $ip_num = str_replace($data['configoption7'].".",null,$rt['mainipaddress']);
       $ssh_port = (61000 + $ip_num);
@@ -127,27 +127,47 @@ function Airline_svm_CreateAccount($data)
   return $rt['statusmsg'];
 //  return $svm_api_addr;
 }
-function Airline_svm_ServerRenewalAccount($data)
-{
+function Airline_svm_ServerRenewalAccount($data) {
   return "成功";
 }
-function Airline_svm_SuspendAccount($data)
-{
+function Airline_svm_UnSuspendAccount($data) {
+  $svm_api_addr = "https://{$data['serverip']}:5656/api/admin/command.php";
+  $postdata['action'] = "vserver-unsuspend";
+  $postdata['vserverid'] = get_query_val("服务","注释",array("id" => $data['serviceid']));
+  $postdata['id'] = $data['serverusername'];
+  $postdata['key'] = $data['serverpassword'];
+  foreach($postdata as $n => $v) {
+    $svm_postdata .= "$n=$v&";
+  }
+  $svm_postdata .= "rdtype=json";
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata),true);
+  if($rt['status'] == "success") return "成功";
+  return $rt['statusmsg'];
+}
+function Airline_svm_SuspendAccount($data) {
+  $svm_api_addr = "https://{$data['serverip']}:5656/api/admin/command.php";
+  $postdata['action'] = "vserver-suspend";
+  $postdata['vserverid'] = get_query_val("服务","注释",array("id" => $data['serviceid']));
+  $postdata['id'] = $data['serverusername'];
+  $postdata['key'] = $data['serverpassword'];
+  foreach($postdata as $n => $v) {
+    $svm_postdata .= "$n=$v&";
+  }
+  $svm_postdata .= "rdtype=json";
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata),true);
+  if($rt['status'] == "success") return "成功";
+  return $rt['statusmsg'];
+}
+function Airline_svm_TerminateAccount($data) {
 return '成功';
 }
-function Airline_svm_TerminateAccount($data)
-{
-return '成功';
-}
-function Airline_svm_ClientArea($data)
-{
+function Airline_svm_ClientArea($data) {
   $client_usr = get_query_val("用户","用户名",array("uid" => $data['clientsdetails']['userid']));
   $client_pwd = md5(md5(get_query_val("用户","注册时间",array("uid" => $data['clientsdetails']['userid'])),true));
   $url = "https://{$data['serverip']}:5656";
   return "<iframe src=\"/swap_mac/swap_lib/servers/Airline_svm/login.php?username=$client_usr&password=$client_pwd&sip=$url\" hidden></iframe><a href=\"$url\" class=\"btn btn-cc\" target=\"_blank\">登入控制面板</a>";
 }
-function Airline_svm_ChangePassword($data)
-{
+function Airline_svm_ChangePassword($data) {
   $sid = $data['serverid'];
   $sip = get_query_val("服务器表","IP",array("id" => $sid));
   $svm_api_addr = "https://$sip:5656/api/admin/command.php";
@@ -183,13 +203,12 @@ function svm_curl($url,$data) {
     curl_close($ch);
     return $content;
 }
-function svm_cut($begin,$end,$str){
+function svm_cut($begin,$end,$str) {
     $b = mb_strpos($str,$begin) + mb_strlen($begin);
     $e = mb_strpos($str,$end) - $b;
     return mb_substr($str,$b,$e);
 }
-function svm_rnd($length)
-{
+function svm_rnd($length) {
  // 密码字符集，可任意添加你需要的字符
  $str = array('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 
  'i', 'j', 'k', 'l','m', 'n', 'o', 'p', 'q', 'r', 's', 
