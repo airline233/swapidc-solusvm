@@ -101,7 +101,7 @@ function Airline_svm_CreateAccount($data) {
   $postdata['node'] = $data['configoption2'];
   $postdata['hostname'] = "i-".substr(md5($data['username'].rand( rand(10,100) , rand(100,1000) )*$data['serviceid']),8,16);
   $postdata['password'] = $data['password'];
-  $postdata['username'] = get_query_val("用户","用户名",array("uid" => $data['clientsdetails']['userid']));
+  $postdata['username'] = str_replace("@","-",get_query_val("用户","电子邮件",array("uid" => $data['clientsdetails']['userid'])));
   $postdata['plan'] = $data['configoption3'];
   $postdata['template'] = $data['configoption4'];
   $postdata['ips'] = $data['configoption5'];
@@ -169,7 +169,7 @@ function Airline_svm_TerminateAccount($data) {
 return '成功';
 }
 function Airline_svm_ClientArea($data) {
-  $client_usr = get_query_val("用户","用户名",array("uid" => $data['clientsdetails']['userid']));
+  $client_usr = str_replace("@","-",get_query_val("用户","电子邮件",array("uid" => $data['clientsdetails']['userid'])));
   $client_pwd = md5(md5(get_query_val("用户","注册时间",array("uid" => $data['clientsdetails']['userid'])),true));
   $url = "https://{$data['serverip']}:5656";
   return "<iframe src=\"/swap_mac/swap_lib/servers/Airline_svm/login.php?username=$client_usr&password=$client_pwd&sip=$url\" hidden></iframe><a href=\"$url\" class=\"btn btn-cc\" target=\"_blank\">登入控制面板</a>";
@@ -181,7 +181,7 @@ function Airline_svm_ChangePassword($data) {
   $postdata['action'] = "client-updatepassword";
   $postdata['id'] = get_query_val("服务器表",'用户名',array("id" => $sid));
   $postdata['key'] = decrypt(get_query_val("服务器表","密码",array("id" => $sid)));
-  $postdata['username'] = get_query_val("用户","用户名",array("uid" => $data['clientsdetails']['userid']));
+  $postdata['username'] = str_replace("@","-",get_query_val("用户","电子邮件",array("uid" => $data['clientsdetails']['userid'])));
   $postdata['password'] = md5(md5(get_query_val("用户","注册时间",array("uid" => $data['clientsdetails']['userid'])),true));
   foreach($postdata as $n => $v) {
     $svm_postdata .= "$n=$v&";
