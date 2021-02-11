@@ -91,7 +91,7 @@ return $Options;
 }
 function Airline_svm_CreateAccount($data) {
   $svm_api_addr = "https://{$data['serverip']}:5656/api/admin/command.php";
-  $client_pwd = md5(md5(get_query_val("用户","注册时间",array("uid" => $data['clientsdetails']['userid'])),true));
+  $client_pwd = substr(md5($data['serverip'].$data['clientsdetails']['userid'].get_query_val("用户","密码",array("uid" => $data['clientsdetails']['userid']))),$data['clientsdetails']['userid'][0]-1,10);
   $client_email = $data['clientsdetails']['email'];
   $client_name = $data['clientsdetails']['lastname'];
   $postdata['action'] = "vserver-create";
@@ -182,7 +182,7 @@ function Airline_svm_ChangePassword($data) {
   $postdata['id'] = get_query_val("服务器表",'用户名',array("id" => $sid));
   $postdata['key'] = decrypt(get_query_val("服务器表","密码",array("id" => $sid)));
   $postdata['username'] = str_replace("@","-",get_query_val("用户","电子邮件",array("uid" => $data['clientsdetails']['userid'])));
-  $postdata['password'] = md5(md5(get_query_val("用户","注册时间",array("uid" => $data['clientsdetails']['userid'])),true));
+  $postdata['password'] = substr(md5($data['serverip'].$data['clientsdetails']['userid'].get_query_val("用户","密码",array("uid" => $data['clientsdetails']['userid']))),$data['clientsdetails']['userid'][0]-1,10);
   foreach($postdata as $n => $v) {
     $svm_postdata .= "$n=$v&";
   }
