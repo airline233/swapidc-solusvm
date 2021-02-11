@@ -22,6 +22,8 @@ swapidc对接solusvm插件
 
 >NAT产品自动显示SSH端口&NAT端口 (2020/08/23 10:45)
 
+>支持通过反代服务器请求SolusVM控制面板(使IP被墙的情况下能够正常请求)（2021/02/11 11:30）
+
 正在不断更新中...
 
 
@@ -40,6 +42,8 @@ swapidc对接solusvm插件
 >用户名:API ID 在SolusVM主控后台获取
 
 >密码:API KEY 在SolusVM主控后台获取
+
+>哈希密码：API反代地址 如example.com:8081 **无需加https://**
 
 4.创建产品组&产品
 #### 产品服务器配置选项
