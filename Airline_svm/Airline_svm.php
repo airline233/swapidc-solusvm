@@ -6,8 +6,9 @@ function Airline_svm_ConfigOptions() {
   $svm_api_addr = "https://".get_query_val("服务器表","ip",array("id" => $server_id)).":5656/api/admin/command.php";
   $svm_api_id = get_query_val("服务器表","用户名",array("id" => $server_id));
   $svm_api_key = decrypt(get_query_val("服务器表","密码",array("id" => $server_id)));
+  $svm_api_raddr = get_query_val("服务器表","哈希密码",array("id" => $server_id));
   $vtype = get_query_val("产品","配置选项1",array("id" => $cid));
-  $rt = json_decode(svm_curl($svm_api_addr,"id=$svm_api_id&key=$svm_api_key&action=listnodes&type=$vtype&rdtype=json"),true);
+  $rt = json_decode(svm_curl($svm_api_addr,"id=$svm_api_id&key=$svm_api_key&action=listnodes&type=$vtype&rdtype=json",$svm_api_raddr),true);
   if($rt) {
     if($rt['statusmsg'] == "Invalid ipaddress") $nodelist = "请确认IP白名单设置是否正确";
     if($rt['statusmsg'] == "API account inactive") $nodelist = "API账户已被禁用 请确认配置是否正确";
@@ -21,7 +22,7 @@ function Airline_svm_ConfigOptions() {
     $nodelist = $rt['nodes'];
   }
 
-  $rt = json_decode(svm_curl($svm_api_addr,"id=$svm_api_id&key=$svm_api_key&action=listplans&type=$vtype&rdtype=json"),true);
+  $rt = json_decode(svm_curl($svm_api_addr,"id=$svm_api_id&key=$svm_api_key&action=listplans&type=$vtype&rdtype=json",$svm_api_raddr),true);
   if($rt) {
     if($rt['statusmsg'] == "Invalid ipaddress") $planlist = "请确认IP白名单设置是否正确";
     if($rt['statusmsg'] == "API account inactive") $planlist = "API账户已被禁用 请确认配置是否正确";
@@ -35,7 +36,7 @@ function Airline_svm_ConfigOptions() {
     $planlist = $rt['plans'];
   }
 
-  $rt = json_decode(svm_curl($svm_api_addr,"id=$svm_api_id&key=$svm_api_key&action=listtemplates&type=$vtype&rdtype=json"),true);
+  $rt = json_decode(svm_curl($svm_api_addr,"id=$svm_api_id&key=$svm_api_key&action=listtemplates&type=$vtype&rdtype=json",$svm_api_raddr),true);
   if($rt) {
     if($vtype == "openvz" && $vtype == "xen") $tname="templates";
     if($vtype == "xen hvm") $tname = "templateshvm";
@@ -91,7 +92,7 @@ return $Options;
 }
 function Airline_svm_CreateAccount($data) {
   $svm_api_addr = "https://{$data['serverip']}:5656/api/admin/command.php";
-  $client_pwd = substr(md5($data['serverip'].$data['clientsdetails']['userid'].get_query_val("用户","密码",array("uid" => $data['clientsdetails']['userid']))),$data['clientsdetails']['userid'][0]-1,10);
+  $client_pwd = substr(md5($data['serverip'].$data['clientsdetails']['userid'].get_query_val("用户","密码",array("uid" => $data['clientsdetails']['userid']))),$data['clientsdetails']['userid'][0],10);
   $client_email = $data['clientsdetails']['email'];
   $client_name = $data['clientsdetails']['lastname'];
   $postdata['action'] = "vserver-create";
@@ -109,8 +110,8 @@ function Airline_svm_CreateAccount($data) {
     $svm_postdata .= "$n=$v&";
   }
   $svm_postdata .= "rdtype=json";
-  svm_curl($svm_api_addr,"action=client-create&id={$postdata['id']}&key={$postdata['key']}&username={$postdata['username']}&password=$client_pwd&email=$client_email&firstname=$client_name");
-  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata),true);
+  svm_curl($svm_api_addr,"action=client-create&id={$postdata['id']}&key={$postdata['key']}&username={$postdata['username']}&password=$client_pwd&email=$client_email&firstname=$client_name",$data['serveraccesshash']);
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata,$data['serveraccesshash']),true);
   if($rt['status'] == "success") {
     update_query("服务",array(
       "用户名" => "root",
@@ -147,7 +148,7 @@ function Airline_svm_UnSuspendAccount($data) {
     $svm_postdata .= "$n=$v&";
   }
   $svm_postdata .= "rdtype=json";
-  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata),true);
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata,$data['serveraccesshash']),true);
   if($rt['status'] == "success") return "成功";
   return $rt['statusmsg'];
 }
@@ -161,7 +162,7 @@ function Airline_svm_SuspendAccount($data) {
     $svm_postdata .= "$n=$v&";
   }
   $svm_postdata .= "rdtype=json";
-  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata),true);
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata,$data['serveraccesshash']),true);
   if($rt['status'] == "success") return "成功";
   return $rt['statusmsg'];
 }
@@ -182,19 +183,20 @@ function Airline_svm_ChangePassword($data) {
   $postdata['id'] = get_query_val("服务器表",'用户名',array("id" => $sid));
   $postdata['key'] = decrypt(get_query_val("服务器表","密码",array("id" => $sid)));
   $postdata['username'] = str_replace("@","-",get_query_val("用户","电子邮件",array("uid" => $data['clientsdetails']['userid'])));
-  $postdata['password'] = substr(md5($data['serverip'].$data['clientsdetails']['userid'].get_query_val("用户","密码",array("uid" => $data['clientsdetails']['userid']))),$data['clientsdetails']['userid'][0]-1,10);
+  $postdata['password'] = substr(md5($data['serverip'].$data['clientsdetails']['userid'].get_query_val("用户","密码",array("uid" => $data['clientsdetails']['userid']))),$data['clientsdetails']['userid'][0],10);
   foreach($postdata as $n => $v) {
     $svm_postdata .= "$n=$v&";
   }
   $svm_postdata .= "rdtype=json";
-  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata),true);
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata,$data['serveraccesshash']),true);
   if($rt['status'] == "success") {
     update_query("服务",array("密码" => encrypt($data['password']."<br />控制面板用户名：{$postdata['username']} <br /> 控制面板密码：{$postdata['password']}")),array("id" => $data['serviceid']));
     return '成功';
   }
   return "公开信息:".$rt['statusmessage'];
 }
-function svm_curl($url,$data) {
+function svm_curl($url,$data,$addr) {
+    if($addr) $url = str_replace(svm_cut("https://",":5656",$url).":5656",$addr,$url);
     $ch = curl_init();
     $cu[CURLOPT_URL] = $url;
     $cu[CURLOPT_HEADER] = false;
@@ -204,6 +206,7 @@ function svm_curl($url,$data) {
     $cu[CURLOPT_POSTFIELDS] = $data;
     $cu[CURLOPT_SSL_VERIFYPEER] = false;
     $cu[CURLOPT_SSL_VERIFYHOST] = false;
+    $cu[CURLOPT_TIMEOUT] = "3";
     $cu[CURLOPT_USERAGENT] = "okhttp/3.5.0";
     curl_setopt_array($ch, $cu);
     $content = curl_exec($ch);
