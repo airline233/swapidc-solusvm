@@ -38,7 +38,7 @@ function Airline_svm_ConfigOptions() {
 
   $rt = json_decode(svm_curl($svm_api_addr,"id=$svm_api_id&key=$svm_api_key&action=listtemplates&type=$vtype&rdtype=json",$svm_api_raddr),true);
   if($rt) {
-    if($vtype == "openvz" && $vtype == "xen") $tname="templates";
+    if($vtype == "openvz" || $vtype == "xen") $tname="templates";
     if($vtype == "xen hvm") $tname = "templateshvm";
     if($vtype == "kvm") $tname = "templateskvm";
     if($rt['statusmsg'] == "Invalid ipaddress") $templatelist = "请确认IP白名单设置是否正确";
@@ -49,7 +49,7 @@ function Airline_svm_ConfigOptions() {
     $templatelist = "请在选择服务器后保存刷新";
   }
   if($rt['status'] == "success") {
-    $templatelist = $rt['templates'];
+    $templatelist = $rt[$tname];
   }
   $Options = array(
     "虚拟化类型" => array(
@@ -171,9 +171,50 @@ return '成功';
 }
 function Airline_svm_ClientArea($data) {
   $client_usr = str_replace("@","-",get_query_val("用户","电子邮件",array("uid" => $data['clientsdetails']['userid'])));
-  $client_pwd = md5(md5(get_query_val("用户","注册时间",array("uid" => $data['clientsdetails']['userid'])),true));
+  $client_pwd = substr(md5($data['serverip'].$data['clientsdetails']['userid'].get_query_val("用户","密码",array("uid" => $data['clientsdetails']['userid']))),$data['clientsdetails']['userid'][0],10);
   $url = "https://{$data['serverip']}:5656";
-  return "<iframe src=\"/swap_mac/swap_lib/servers/Airline_svm/login.php?username=$client_usr&password=$client_pwd&sip=$url\" hidden></iframe><a href=\"$url\" class=\"btn btn-cc\" target=\"_blank\">登入控制面板</a>";
+
+  $svm_api_addr = "https://{$data['serverip']}:5656/api/admin/command.php";
+  $postdata['action'] = "vserver-infoall";
+  $postdata['vserverid'] = get_query_val("服务","注释",array("id" => $data['serviceid']));
+  $postdata['id'] = $data['serverusername'];
+  $postdata['key'] = $data['serverpassword'];
+  foreach($postdata as $n => $v) {
+    $svm_postdata .= "$n=$v&";
+  }
+  $svm_postdata .= "rdtype=json";
+  $usage = json_decode(svm_curl($svm_api_addr,$svm_postdata,$data['serveraccesshash']),true);
+  $info = json_decode(svm_curl($svm_api_addr,"id={$postdata['id']}&key={$postdata['key']}&action=vserver-info&vserverid={$postdata['vserverid']}&rdtype=json",$data['serveraccesshash']),true);
+
+  $bd = explode(",",$usage['bandwidth']);
+  $total = number_format($bd[0] / 1048576 / 1024,3)."GB";
+  $use = number_format($bd[1] / 1048576 / 1024,3)."GB";
+  $rest = number_format($bd[2] / 1048576 / 1024,3)."GB";
+  $bdus = "Total:$total Use:$use Rest:$rest";
+
+  $rt = json_decode(svm_curl($svm_api_addr,"id={$postdata['id']}&key={$postdata['key']}&action=listtemplates&type={$usage['type']}&rdtype=json",$data['serveraccesshash']),true);
+  if($rt) {
+    if($usage['type'] == "openvz" || $usage['type'] == "xen") $tname="templates";
+    if($usage['type'] == "xen hvm") $tname = "templateshvm";
+    if($usage['type'] == "kvm") $tname = "templateskvm";
+    if($rt['statusmsg'] == "Invalid ipaddress") $templatelist = "请确认IP白名单设置是否正确";
+    if($rt['statusmsg'] == "API account inactive") $templatelist = "API账户已被禁用";
+    if($rt['statusmsg'] == "Invalid id or key") $templatelist = "API ID或KEY输入错误";
+    if($rt[$tname] == null) $templatelist = "此虚拟化类型没有可用模板";
+  }
+  if($rt['status'] == "success") {
+    $templatelist = $rt[$tname];
+  }
+  
+  foreach(explode(",",$templatelist) as $n) {
+    $sysoptions .= "<option value=\"$n\">$n</option>";
+  }
+  $actions = "</div><div><hr />Hostname:{$info['hostname']}<hr />Status:{$usage['state']}<hr />Virtual type:{$usage['type']}<hr />System:{$info['template']}<hr />Server node:{$usage['node']}<hr />Bandwidth usage:$bdus<hr />Reinstall <form action=\"action/reinstall/\"  method=\"post\"><select name=\"template\">$sysoptions</select>&nbsp;<button type=\"submit\">Reinstall</button></form></div><div>";
+  return array(
+    "<iframe src=\"/swap_mac/swap_lib/servers/Airline_svm/login.php?username=$client_usr&password=$client_pwd&sip=$url\" hidden></iframe>",
+    "<a href=\"$url\" target=\"_blank\">登入控制面板</a>",
+    "</li></ul>$actions<ul>"
+  );
 }
 function Airline_svm_ChangePassword($data) {
   $sid = $data['serverid'];
@@ -194,6 +235,74 @@ function Airline_svm_ChangePassword($data) {
     return '成功';
   }
   return "公开信息:".$rt['statusmessage'];
+}
+function Airline_svm_ClientAreaCustomButtonArray() {
+  $buttonarray = array(
+    "Boot" => "boot",
+    "Shutdown" => "shutdown",
+    "Reboot" => "reboot",
+    "Reinstall" => "reinstall"
+  );
+  return $buttonarray;
+}
+function Airline_svm_boot($data) {
+  $svm_api_addr = "https://{$data['serverip']}:5656/api/admin/command.php";
+  $postdata['action'] = "vserver-boot";
+  $postdata['vserverid'] = get_query_val("服务","注释",array("id" => $data['serviceid']));
+  $postdata['id'] = $data['serverusername'];
+  $postdata['key'] = $data['serverpassword'];
+  foreach($postdata as $n => $v) {
+    $svm_postdata .= "$n=$v&";
+  }
+  $svm_postdata .= "rdtype=json";
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata,$data['serveraccesshash']),true);
+  if($rt['status'] == "success") return "成功";
+  return $rt['message'];
+}
+function Airline_svm_shutdown($data) {
+  $svm_api_addr = "https://{$data['serverip']}:5656/api/admin/command.php";
+  $postdata['action'] = "vserver-shutdown";
+  $postdata['vserverid'] = get_query_val("服务","注释",array("id" => $data['serviceid']));
+  $postdata['id'] = $data['serverusername'];
+  $postdata['key'] = $data['serverpassword'];
+  foreach($postdata as $n => $v) {
+    $svm_postdata .= "$n=$v&";
+  }
+  $svm_postdata .= "rdtype=json";
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata,$data['serveraccesshash']),true);
+  if($rt['status'] == "success") return "成功";
+  return $rt['message'];
+}
+function Airline_svm_reboot($data) {
+  $svm_api_addr = "https://{$data['serverip']}:5656/api/admin/command.php";
+  $postdata['action'] = "vserver-reboot";
+  $postdata['vserverid'] = get_query_val("服务","注释",array("id" => $data['serviceid']));
+  $postdata['id'] = $data['serverusername'];
+  $postdata['key'] = $data['serverpassword'];
+  foreach($postdata as $n => $v) {
+    $svm_postdata .= "$n=$v&";
+  }
+  $svm_postdata .= "rdtype=json";
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata,$data['serveraccesshash']),true);
+  if($rt['status'] == "success") return "成功";
+  return $rt['message'];
+}
+function Airline_svm_reinstall($data) {
+  if($_POST['template'] == "--none--") return "请选择系统";
+  if($_POST['template'] == null) return "请点击选项框旁的'Reinstall'按钮！";
+  $svm_api_addr = "https://{$data['serverip']}:5656/api/admin/command.php";
+  $postdata['action'] = "vserver-rebuild";
+  $postdata['vserverid'] = get_query_val("服务","注释",array("id" => $data['serviceid']));
+  $postdata['template'] = $_POST['template'];
+  $postdata['id'] = $data['serverusername'];
+  $postdata['key'] = $data['serverpassword'];
+  foreach($postdata as $n => $v) {
+    $svm_postdata .= "$n=$v&";
+  }
+  $svm_postdata .= "rdtype=json";
+  $rt = json_decode(svm_curl($svm_api_addr,$svm_postdata,$data['serveraccesshash']),true);
+  if($rt['status'] == "success") return "成功";
+  return $rt['message'];
 }
 function svm_curl($url,$data,$addr) {
     if($addr) $url = str_replace(svm_cut("https://",":5656",$url).":5656",$addr,$url);
