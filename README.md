@@ -24,6 +24,12 @@ swapidc对接solusvm插件
 
 >支持通过反代服务器请求SolusVM控制面板(使IP被墙的情况下能够正常请求)（2021/02/11 11:30）
 
+>产品详细信息中显示虚拟服务器Hostname,Status,Virtual type,Syetem,Server node,Bandwidth Usage (2021/02/15 11:50)
+
+>产品详细信息中控制虚拟服务器Boot,Shutdown,Reboot (2021/02/15 11:50)
+
+>产品详细信息中控制虚拟服务器重装系统 (2021/02/15 11:50)
+
 正在不断更新中...
 
 
