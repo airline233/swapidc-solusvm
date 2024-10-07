@@ -167,7 +167,7 @@ function Airline_svm_SuspendAccount($data) {
   return $rt['statusmsg'];
 }
 function Airline_svm_TerminateAccount($data) {
-return '成功';
+  return '成功';
 }
 function Airline_svm_ClientArea($data) {
   $client_usr = str_replace("@","-",get_query_val("用户","电子邮件",array("uid" => $data['clientsdetails']['userid'])));
